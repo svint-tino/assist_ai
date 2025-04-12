@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Assistant Shopify</title>
+  <style>
+    body { font-family: sans-serif; max-width: 700px; margin: auto; padding: 20px; }
+    textarea, input { width: 100%; margin-top: 10px; }
+    button { margin-top: 15px; padding: 10px 20px; cursor: pointer; }
+    .response-box { margin-top: 20px; border: 1px solid #ccc; padding: 15px; background: #f9f9f9; }
+    .sql-box { font-family: monospace; white-space: pre-wrap; color: #444; background: #f0f0f0; padding: 8px; margin-top: 10px; border-left: 3px solid #999; }
+  </style>
+</head>
+<body>
+  <h2>Assistant Conversationnel Shopify</h2>
+
+  <label for="shop">Nom de la boutique :</label>
+  <input type="text" id="shop" placeholder="ex : babaa94.myshopify.com" />
+
+  <label for="message">Votre question :</label>
+  <textarea id="message" rows="4" placeholder="Ex : Quel est mon chiffre d'affaires aujourd'hui ?"></textarea>
+
+  <button onclick="sendMessage()">Envoyer</button>
+
+  <div class="response-box" id="response" style="display:none;">
+    <h3>Réponse de l'assistant :</h3>
+    <div id="assistant_reply"></div>
+
+    <div id="sql_section" style="margin-top:20px;">
+      <strong>Requête principale :</strong>
+      <div class="sql-box" id="sql_output"></div>
+    </div>
+
+    <div id="context_queries_section" style="margin-top:20px;">
+      <!-- Les requêtes contextuelles s'affichent ici -->
+    </div>
+  </div>
+
+  <script>
+    async function sendMessage() {
+      const shop = document.getElementById("shop").value.trim();
+      const message = document.getElementById("message").value.trim();
+
+      if (!shop || !message) {
+        alert("Veuillez remplir les deux champs.");
+        return;
+      }
+
+      const response = await fetch("/api/assistant/conversation", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ shop, message })
+      });
+
+      const data = await response.json();
+      document.getElementById("response").style.display = "block";
+      document.getElementById("assistant_reply").innerText = data.assistant_reply;
+
+      // Affichage de la requête principale
+      if (data.sql && data.sql.main_query) {
+        document.getElementById("sql_output").innerText = data.sql.main_query;
+      } else {
+        document.getElementById("sql_output").innerText = "(aucune requête SQL)";
+      }
+
+      // Affichage des requêtes contextuelles
+      const contextSection = document.getElementById("context_queries_section");
+      contextSection.innerHTML = ""; // reset
+
+      if (data.sql && data.sql.context_queries && data.sql.context_queries.length > 0) {
+        const title = document.createElement("h4");
+        title.innerText = "Requêtes contextuelles :";
+        contextSection.appendChild(title);
+
+        data.sql.context_queries.forEach(ctx => {
+          const ctxBlock = document.createElement("div");
+          ctxBlock.className = "sql-box";
+          ctxBlock.innerHTML = `
+            <strong>${ctx.name}</strong> - ${ctx.purpose}<br/>
+            ${ctx.query}
+          `;
+          contextSection.appendChild(ctxBlock);
+        });
+      }
+    }
+  </script>
+</body>
+</html>
