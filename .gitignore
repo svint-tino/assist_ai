@@ -1,0 +1,25 @@
+# ❌ Empêcher les fichiers de configuration sensibles
+.env
+
+# ❌ Empêcher les fichiers de base de données
+*.db
+*.sqlite
+*.sql
+
+# ❌ Empêcher les fichiers de cache Python
+__pycache__/
+*.pyc
+
+# ❌ Empêcher les fichiers système / IDE
+.DS_Store
+.vscode/
+.idea/
+
+# ❌ Ne pas inclure les fichiers exportés ou logs
+logs/
+*.log
+*.bak
+
+# ❌ Empêcher les prompts
+prompts/
+*.md
