@@ -1,26 +1,28 @@
-# ❌ Empêcher les fichiers de configuration sensibles
-shopify_assist/
+# Clés sensibles
+.env
 *.env
 
-# ❌ Empêcher les fichiers de base de données
+# Bases de données
 *.db
 *.sqlite
 *.sql
 
-# ❌ Empêcher les fichiers de cache Python
+# Cache python
 __pycache__/
 *.pyc
 
-# ❌ Empêcher les fichiers système / IDE
-.DS_Store
+# Environnements virtuels
+.venv/
+venv/
+env/
+
+# IDE
 .vscode/
 .idea/
 
-# ❌ Ne pas inclure les fichiers exportés ou logs
-logs/
-*.log
-*.bak
+# OS files
+.DS_Store
+Thumbs.db
 
-# ❌ Empêcher les prompts
 prompts/
-*.md
+shopify_assist/.test/
