@@ -1,35 +1,49 @@
 import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import logo from './assets/logooblanc.png'
+import { InputBox } from './components/InputBox'
+import { BackButton } from './components/BackButton'
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const [shopName, setShopName] = useState('')
+  const [confirmedShop, setConfirmedShop] = useState('')
+
+  if (!confirmedShop) {
+    return (
+      <div className="min-h-screen bg-[#faf9f9] flex items-center justify-center">
+        <div className="w-[300px] flex flex-col gap-4">
+          <input
+            type="text"
+            value={shopName}
+            onChange={(e) => setShopName(e.target.value)}
+            placeholder="Inser your shop name..."
+            className="border border-gray-300 rounded px-4 py-2 text-base"
+          />
+          <button
+            onClick={() => {
+              if (shopName.trim()) setConfirmedShop(shopName.trim())
+            }}
+            className="bg-black text-white px-6 py-2 rounded hover:bg-gray-800"
+          >
+            Go to KOOC
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <div className="min-h-screen grid grid-rows-[1fr_auto] bg-[#faf9f9]">
+      <BackButton onClick={() => setConfirmedShop('')} />
+      <div className="flex items-center justify-center">
+        <img
+          src={logo}
+          alt="KOOC Logo"
+          className="w-[200px] h-[150px] object-contain"
+        />
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
+      <div className="pb-12">
+        <InputBox shopName={confirmedShop} />
       </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    </div>
   )
 }
-
-export default App

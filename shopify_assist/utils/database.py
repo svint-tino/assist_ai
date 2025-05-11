@@ -11,6 +11,28 @@ def get_database_path(shop):
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
     return db_path
 
+def create_ga_metrics_table(shop):
+    db_path = get_database_path(shop)
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS ga_metrics (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT,
+            sessions INTEGER,
+            users INTEGER,
+            bounce_rate REAL,
+            avg_session_duration REAL,
+            source TEXT,
+            medium TEXT,
+            created_at TEXT
+        )
+    """)
+
+    conn.commit()
+    conn.close()
+
 def create_tables(shop):
     db_path = get_database_path(shop)
     connection = sqlite3.connect(db_path)
