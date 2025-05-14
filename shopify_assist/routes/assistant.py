@@ -1,6 +1,21 @@
 from flask import Blueprint, request, jsonify
 import os 
+import logging
 from shopify_assistant import SQLAssistant
+
+# === CONFIGURATION DU LOGGER ===
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+log_dir = "logs"
+os.makedirs(log_dir, exist_ok=True)
+
+file_handler = logging.FileHandler(f"{log_dir}/database.log")
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+
+if not logger.hasHandlers():
+    logger.addHandler(file_handler)
 
 assistant_bp = Blueprint('assistant', __name__)
 
@@ -71,6 +86,7 @@ def conversation():
 
     # 4) Construire la réponse assistant en texte (pour le chat)
     if 'error' in result:
+        logger.error(f"[{shop}] Erreur dans le traitement de la question: {result['error']}")
         # Si c'est une erreur détectée dans process_question
         assistant_reply = f"Erreur: {result['error']}"
     else:
@@ -97,5 +113,5 @@ def conversation():
     elif result.get("type") == "conversational":
         response_data["data"] = None
         response_data["sql"] = None
-
+    
     return jsonify(response_data)
