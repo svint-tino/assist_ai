@@ -81,7 +81,7 @@ class SQLAssistant:
             records = [dict(zip(columns, row)) for row in result]
             return records
         
-    def generate_analysis(self, conversation: list[dict], main_data: list = None, context_data: list = None) -> str:
+    def generate_analysis(self, conversation: list[dict], main_data: list = None, context_data: list = None):
         """Génère une analyse basée sur les données principales et contextuelles"""
         
         if main_data is None:
@@ -118,25 +118,35 @@ class SQLAssistant:
             {"role": "system", "content": system_prompt},
         ] + conversation
         
-        response = self.client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=messages_for_gpt,
-            temperature=0.5
-        )
-        
-        return response.choices[0].message.content
+        try:
+            # Appel à l'API OpenAI avec le mode streaming activé
+            stream = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=messages_for_gpt,
+                temperature=0.5,
+                stream=True
+            )
 
-    def process_question(self, conversation: list[dict]) -> dict:
+            # Parcourir les morceaux de réponse et les transmettre
+            for chunk in stream:
+                content = chunk.choices[0].delta.content
+                if content:
+                    yield content
+
+        except Exception as e:
+            # En cas d'erreur, transmettre un message d'erreur
+            yield f"Erreur lors de la génération de l'analyse : {str(e)}"
+        
+    def full_response(self, conversation: list[dict]):
         """
-        conversation = liste de messages
-        Le dernier message 'user' contient la question la plus récente
+        Gère la logique SQL si nécessaire, puis stream le résultat de generate_analysis()
         """
         last_user_question = conversation[-1]["content"]
-        
+
         try:
             query_response = self.generate_sql_query(last_user_question)
             requires_sql = query_response.get("requires_sql", False)
-            
+
             if requires_sql:
                 main_query = query_response["main_query"]
                 main_data = self.execute_query(main_query)
@@ -145,26 +155,19 @@ class SQLAssistant:
                 for ctx in query_response.get('context_queries', []):
                     ctx_name = ctx['name']
                     ctx_query = ctx['query']
-                    
                     context_data[ctx_name] = {
                         "data": self.execute_query(ctx_query),
                         "purpose": ctx['purpose']
                     }
-                
-                analysis = self.generate_analysis(conversation, main_data, context_data)
 
-                return {
-                    'type': 'data_analysis',
-                    'main_query': main_query,
-                    'context_queries': query_response['context_queries'],
-                    'response': analysis
-                }
+                # Stream de l'analyse enrichie
+                for chunk in self.generate_analysis(conversation, main_data, context_data):
+                    yield chunk
+
             else:
-                analysis = self.generate_analysis(conversation, [], {})
+                # Stream de l'analyse simple sans SQL
+                for chunk in self.generate_analysis(conversation, [], {}):
+                    yield chunk
 
-                return {
-                    'type': 'conversational',
-                    'response': analysis
-                }
         except Exception as e:
-            return {'error': str(e)}
+            yield f"Erreur : {str(e)}"

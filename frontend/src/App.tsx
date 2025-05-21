@@ -9,7 +9,6 @@ export default function App() {
   const [confirmedShop, setConfirmedShop] = useState('')
   const [hasSentMessage, setHasSentMessage] = useState(false)
 
-
   if (!confirmedShop) {
     return (
       <div className="min-h-screen bg-[#faf9f9] flex items-center justify-center">

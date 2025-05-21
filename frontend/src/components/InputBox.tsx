@@ -46,11 +46,30 @@ export function InputBox({
         }),
       })
 
-      const data = await res.json()
-      const assistantMessage = { role: 'assistant', content: data.assistant_reply } as const
+      const reader = res.body?.getReader()
+      const decoder = new TextDecoder('utf-8')
+
+      const assistantMessage = { role: 'assistant', content: '' } as const
       setMessages(prev => [assistantMessage, ...prev])
+
+      if (reader) {
+        while (true) {
+          const { value, done } = await reader.read()
+          if (done) break
+          const chunk = decoder.decode(value)
+
+          setMessages(prev => {
+            const updated = [...prev]
+            const last = updated[0]
+            if (last.role === 'assistant') {
+              updated[0] = { ...last, content: last.content + chunk }
+            }
+            return updated
+          })
+        }
+      }
     } catch (err) {
-      console.error('Error fetching response:', err)
+      console.error('Streaming error:', err)
       setMessages(prev => [
         { role: 'assistant', content: 'Erreur de réponse de KOOC.' },
         ...prev,
@@ -59,6 +78,7 @@ export function InputBox({
       setIsLoading(false)
     }
   }
+
 
   return (
     <div className="flex flex-col items-center gap-4 w-full">
