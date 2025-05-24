@@ -2,6 +2,8 @@ from flask import Blueprint, request, jsonify, stream_with_context, Response
 import os 
 import logging
 from shopify_assistant import SQLAssistant
+from utils.visual_utils import validate_visual_spec, render_altair_visual
+
 
 # === CONFIGURATION DU LOGGER ===
 logger = logging.getLogger(__name__)
@@ -75,7 +77,6 @@ def conversation():
             sql_assistant = SQLAssistant(shop)
             for chunk in sql_assistant.full_response(conversation):
                 yield chunk
-                logger.info(f"[{shop}] Chunk envoyé: {chunk}")
         except Exception as e:
             error_message = f"Erreur: {str(e)}"
             yield error_message
@@ -84,3 +85,42 @@ def conversation():
     # Ajouter un en-tête pour indiquer que c'est un flux d'événements
     headers = {"Content-Type": "text/plain", "Cache-Control": "no-cache"}
     return Response(stream_with_context(generate_response()), headers=headers)
+
+@assistant_bp.route('/generate-visual', methods=['POST'])
+def generate_visual():
+    """
+    Génère un graphique Altair à partir d'une spécification JSON reçue.
+    
+    JSON attendu :
+    {
+      "visual_spec": { ... }
+    }
+
+    Réponse :
+    {
+      "html_path": "/static/abc123.html"
+    }
+    """
+    data = request.json
+    if not data:
+        return jsonify({"error": "Aucune donnée reçue"}), 400
+    
+    # Vérifier la présence de la spécification visuelle
+    visual_spec = data.get("visual_spec")
+    if not visual_spec:
+        return jsonify({"error": "Champ 'visual_spec' requis"}), 400
+
+    # Valider la spec
+    if not validate_visual_spec(visual_spec):
+        return jsonify({"error": "La spécification fournie est invalide."}), 400
+
+    # Générer le visuel
+    output_path = render_altair_visual(visual_spec)
+
+    if not output_path:
+        return jsonify({"error": "Échec de la génération de la visualisation."}), 500
+
+    # Retourner l’URL accessible depuis le frontend
+    public_url = "/" + output_path.lstrip("./")
+
+    return jsonify({"html_path": public_url})

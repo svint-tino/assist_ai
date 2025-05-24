@@ -29,5 +29,8 @@ shopify_assist/.test/
 
 /frontend/node_modules
 /frontend/dist
+/frontend/public
 
 logs/
+static/
+databases/

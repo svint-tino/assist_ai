@@ -32,6 +32,7 @@ class SQLAssistant:
           - Réponds sous la forme JSON suivante :
             {{
                 "requires_sql": true,
+                "visualisation": true or false,
                 "main_query": "SELECT ...",
                 "context_queries": [
                     {{
@@ -67,11 +68,11 @@ class SQLAssistant:
 
         # Parser la réponse en JSON
         content = response.choices[0].message.content
+        
         try:
             return json.loads(content)
         except json.JSONDecodeError as e:
             raise ValueError(f"Erreur de parsing JSON: {str(e)}")
-
     
     def execute_query(self, query: str) -> list:
         """Exécute la requête SQL et retourne les résultats"""
@@ -136,22 +137,91 @@ class SQLAssistant:
         except Exception as e:
             # En cas d'erreur, transmettre un message d'erreur
             yield f"Erreur lors de la génération de l'analyse : {str(e)}"
+
+    def generate_visual_spec(self, question: str, main_data: list[dict]) -> dict:
+        """Utilise GPT pour générer une spec Altair JSON à partir d'une question et des données associées"""
+        
+        system_prompt = f"""
+        Tu es un assistant Python spécialisé en visualisation de données avec Altair.
+
+        Ta tâche est de générer une spec Altair JSON complète pour représenter les données ci-dessous,
+        en répondant à la question de l'utilisateur.
+
+        Tu dois répondre uniquement avec un objet JSON, sans texte autour.
+
+        INSTRUCTIONS :
+        - Analyse la question de l'utilisateur pour choisir le bon type de graphique (bar, line, pie, scatter…)
+        - Déduis les axes X et Y pertinents à partir des données
+        - Intègre un titre cohérent
+        - Structure ton JSON pour être compatible avec alt.Chart(data).mark_*().encode(...)
+        - Garde une structure lisible et simple
+
+        Question utilisateur :
+        {question}
+
+        Données (main_data) :
+        {json.dumps(main_data[:10], indent=2)}
+
+        Format attendu :
+        {{
+        "type": "bar",
+        "title": "...",
+        "x": {{
+            "field": "...",
+            "type": "nominal",
+            "title": "..."
+        }},
+        "y": {{
+            "field": "...",
+            "type": "quantitative",
+            "title": "..."
+        }},
+        "data": [...]
+        }}
+        """
+        
+        try:
+            response = self.client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": system_prompt}
+                ],
+                temperature=0
+            )
+            
+            # Extraire le contenu de la réponse
+            content = response.choices[0].message.content
+
+            # Nettoyer les balises Markdown si présentes
+            if content.startswith("```json") and content.endswith("```"):
+                content = content[7:-3].strip()  # Supprime les balises ```json et ```
+
+            # Parser le JSON
+            return json.loads(content)
+        except Exception as e:
+            return {"error": f"Erreur dans generate_visual_spec : {str(e)}"}
         
     def full_response(self, conversation: list[dict]):
         """
-        Gère la logique SQL si nécessaire, puis stream le résultat de generate_analysis()
+        Gère la logique SQL si nécessaire, génère une visualisation si demandée, 
+        puis stream le résultat de generate_analysis()
         """
         last_user_question = conversation[-1]["content"]
 
         try:
             query_response = self.generate_sql_query(last_user_question)
             requires_sql = query_response.get("requires_sql", False)
+            needs_visualization = query_response.get("visualisation", False)
+
+            main_data = []
+            context_data = {}
+            visual_spec = None
 
             if requires_sql:
                 main_query = query_response["main_query"]
                 main_data = self.execute_query(main_query)
 
-                context_data = {}
+                # Récupération des données contextuelles
                 for ctx in query_response.get('context_queries', []):
                     ctx_name = ctx['name']
                     ctx_query = ctx['query']
@@ -160,14 +230,20 @@ class SQLAssistant:
                         "purpose": ctx['purpose']
                     }
 
-                # Stream de l'analyse enrichie
-                for chunk in self.generate_analysis(conversation, main_data, context_data):
-                    yield chunk
+                # Génération de la visualisation si nécessaire
+                if needs_visualization and main_data:
+                    visual_spec = self.generate_visual_spec(last_user_question, main_data)
+                    # On ajoute la spec visuelle aux données contextuelles
+                    context_data["visualization"] = {
+                        "data": visual_spec,
+                        "purpose": "Représentation graphique des données"
+                    }
 
-            else:
-                # Stream de l'analyse simple sans SQL
-                for chunk in self.generate_analysis(conversation, [], {}):
-                    yield chunk
+            # Stream de l'analyse (enrichie avec la visualisation si présente)
+            for chunk in self.generate_analysis(conversation, main_data, context_data):
+                yield chunk
+            
+            print(visual_spec)
 
         except Exception as e:
             yield f"Erreur : {str(e)}"

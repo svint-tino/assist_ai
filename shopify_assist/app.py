@@ -12,7 +12,9 @@ import os
 load_dotenv()
 
 # Initialiser l'application Flask
-app = Flask(__name__)
+static_dir = os.path.join(os.path.dirname(__file__), "static")
+app = Flask(__name__, static_url_path="/static", static_folder=static_dir,)
+
 CORS(app)
 app.secret_key = os.getenv("SECRET_KEY", "dev-secret-key")
 
