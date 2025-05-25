@@ -141,43 +141,25 @@ class SQLAssistant:
     def generate_visual_spec(self, question: str, main_data: list[dict]) -> dict:
         """Utilise GPT pour générer une spec Altair JSON à partir d'une question et des données associées"""
         
-        system_prompt = f"""
-        Tu es un assistant Python spécialisé en visualisation de données avec Altair.
+        system_prompt = f"""Tu es un assistant Python expert en visualisation de données avec Altair.
 
-        Ta tâche est de générer une spec Altair JSON complète pour représenter les données ci-dessous,
-        en répondant à la question de l'utilisateur.
-
-        Tu dois répondre uniquement avec un objet JSON, sans texte autour.
+        Ta mission :
+        Génère une spécification Altair (compatible Vega-Lite) en JSON pour représenter les données suivantes.
 
         INSTRUCTIONS :
-        - Analyse la question de l'utilisateur pour choisir le bon type de graphique (bar, line, pie, scatter…)
-        - Déduis les axes X et Y pertinents à partir des données
-        - Intègre un titre cohérent
-        - Structure ton JSON pour être compatible avec alt.Chart(data).mark_*().encode(...)
-        - Garde une structure lisible et simple
+        - Utilise le format standard Altair avec : "mark", "encoding", "title", "data"
+        - Choisis le type de graphique adapté : bar, line, scatter, pie…
+        - Le champ X = la catégorie ou axe temporel, le champ Y = la métrique à représenter
+        - Donne un titre pertinent au graphique
+        - Utilise uniquement les champs présents dans les données
 
         Question utilisateur :
         {question}
 
         Données (main_data) :
         {json.dumps(main_data[:10], indent=2)}
-
-        Format attendu :
-        {{
-        "type": "bar",
-        "title": "...",
-        "x": {{
-            "field": "...",
-            "type": "nominal",
-            "title": "..."
-        }},
-        "y": {{
-            "field": "...",
-            "type": "quantitative",
-            "title": "..."
-        }},
-        "data": [...]
-        }}
+        
+        Réponds uniquement avec l'objet JSON (aucun texte autour).
         """
         
         try:
@@ -233,17 +215,12 @@ class SQLAssistant:
                 # Génération de la visualisation si nécessaire
                 if needs_visualization and main_data:
                     visual_spec = self.generate_visual_spec(last_user_question, main_data)
-                    # On ajoute la spec visuelle aux données contextuelles
-                    context_data["visualization"] = {
-                        "data": visual_spec,
-                        "purpose": "Représentation graphique des données"
-                    }
-
-            # Stream de l'analyse (enrichie avec la visualisation si présente)
+                    print("Visual spec :", visual_spec)
+                    return json.dumps(visual_spec)
+                        
+            # Stream de l'analyse (sans la visualisation dans context_data maintenant)
             for chunk in self.generate_analysis(conversation, main_data, context_data):
                 yield chunk
-            
-            print(visual_spec)
 
         except Exception as e:
             yield f"Erreur : {str(e)}"
