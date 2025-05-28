@@ -66,7 +66,9 @@ def validate_visual_spec(spec: dict) -> bool:
 # === FONCTION DE RENDU AVEC ALTAIR ===
 def render_altair_visual(visual_spec: dict, output_dir: str = "static") -> str:
     try:
-        df = pd.DataFrame(visual_spec["data"])
+        data = visual_spec.get("data", {}).get("values", [])
+        df = pd.DataFrame(data)
+
 
         chart = alt.Chart(df).mark_bar().encode(
             x=alt.X(visual_spec["encoding"]["x"]["field"], type=visual_spec["encoding"]["x"]["type"]),

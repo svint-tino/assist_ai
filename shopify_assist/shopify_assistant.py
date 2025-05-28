@@ -4,6 +4,8 @@ import json
 from dotenv import load_dotenv
 import os
 from utils.database import get_database_path
+from utils.visual_utils import render_altair_visual
+
 
 load_dotenv()
 
@@ -139,32 +141,55 @@ class SQLAssistant:
             yield f"Erreur lors de la génération de l'analyse : {str(e)}"
 
     def generate_visual_spec(self, question: str, main_data: list[dict]) -> dict:
-        """Utilise GPT pour générer une spec Altair JSON à partir d'une question et des données associées"""
+        """Utilise GPT pour générer une spec Altair JSON à partir d'une question et des données associées"""       
+        #Choisis le type de graphique adapté : bar, line, scatter, pie…
         
         system_prompt = f"""Tu es un assistant Python expert en visualisation de données avec Altair.
 
         Ta mission :
-        Génère une spécification Altair (compatible Vega-Lite) en JSON pour représenter les données suivantes.
+        Génère une spécification Altair (compatible Vega-Lite) en JSON pour représenter les données ci-dessous.
 
         INSTRUCTIONS :
-        - Utilise le format standard Altair avec : "mark", "encoding", "title", "data"
-        - Choisis le type de graphique adapté : bar, line, scatter, pie…
-        - Le champ X = la catégorie ou axe temporel, le champ Y = la métrique à représenter
-        - Donne un titre pertinent au graphique
-        - Utilise uniquement les champs présents dans les données
+        1.Utilise EXACTEMENT le format Vega-Lite standard :
+        {{
+            "data": {{
+                "values": [ ... toutes les données ... ]
+            }},
+            "mark": "bar|line|area|point|circle",
+            "encoding": {{
+                "x": {{ "field": "nom_du_champ", "type": "quantitative|ordinal|nominal|temporal", "title": "Titre axe X" }},
+                "y": {{ "field": "nom_du_champ", "type": "quantitative|ordinal|nominal|temporal", "title": "Titre axe Y" }}
+            }},
+            "title": "Titre du graphique"
+        }}
+        
+        2. CHOIX DU GRAPHIQUE :
+        - "bar" : comparaisons, top N, répartitions
+        - "line" : évolutions temporelles, tendances
+        - "area" : évolutions avec surface, volumes cumulés
+        - "point" : corrélations, dispersions
+        - "circle" : scatter plots avec tailles variables
 
+        3. SÉLECTION DES CHAMPS :
+        - X : souvent la métrique (quantité, montant, pourcentage)
+        - Y : souvent la dimension (catégorie, temps)
+        - Utilise UNIQUEMENT les champs présents dans les données
+
+        4. FORMAT DE RÉPONSE :
+        - JSON pur, sans balises markdown
+        - Inclure TOUTES les données dans "data.values"
+        - Titre explicite et professionnel 
+               
         Question utilisateur :
         {question}
 
         Données (main_data) :
         {json.dumps(main_data[:10], indent=2)}
-        
-        Réponds uniquement avec l'objet JSON (aucun texte autour).
         """
         
         try:
             response = self.client.chat.completions.create(
-                model="gpt-4o",
+                model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": system_prompt}
                 ],
@@ -215,8 +240,14 @@ class SQLAssistant:
                 # Génération de la visualisation si nécessaire
                 if needs_visualization and main_data:
                     visual_spec = self.generate_visual_spec(last_user_question, main_data)
-                    print("Visual spec :", visual_spec)
-                    return json.dumps(visual_spec)
+                    
+                    output_dir = os.path.join(os.path.dirname(__file__), "static")  # ou current_app.static_folder si tu es dans Flask
+                    visual_spec_path = render_altair_visual(visual_spec, output_dir)
+
+                    if visual_spec_path:
+                        print("Visualisation générée :", visual_spec_path)
+                        # Envoi du lien streamé vers le frontend
+                        yield f"[VISUAL] /static/{os.path.basename(visual_spec_path)}"
                         
             # Stream de l'analyse (sans la visualisation dans context_data maintenant)
             for chunk in self.generate_analysis(conversation, main_data, context_data):
