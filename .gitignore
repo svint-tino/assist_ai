@@ -34,3 +34,6 @@ shopify_assist/.test/
 logs/
 static/
 databases/
+
+*.code-workspace
+.hintrc
