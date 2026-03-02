@@ -1,4 +1,4 @@
-# 🛍️ KOOC - Assistant IA pour e-commerce Shopify
+# 🛍️ Assistant IA pour e-commerce Shopify
 
 Assistant intelligent alimenté par IA pour analyser et optimiser les données de votre boutique Shopify avec intégration Google Analytics.
 
